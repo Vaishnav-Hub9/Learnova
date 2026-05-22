@@ -131,6 +131,11 @@ export async function middleware(request) {
     if (payload) {
       isTokenValid = true;
       isEmailVerified = !!payload.email_verified;
+      
+      // Prioritize securely signed custom claim over spoofable cookie
+      if (payload.role) {
+        userRole = payload.role;
+      }
     }
   }
 
@@ -158,7 +163,14 @@ export async function middleware(request) {
       return NextResponse.redirect(new URL("/verify", request.url));
     }
 
-
+    // Role mismatch -> redirect to their correct dashboard or /auth
+    if (userRole !== matchedDashboard.role) {
+      const correctDashboard = protectedDashboards.find((d) => d.role === userRole);
+      if (correctDashboard) {
+        return NextResponse.redirect(new URL(correctDashboard.defaultPath, request.url));
+      }
+      return NextResponse.redirect(new URL("/auth", request.url));
+    }
   }
 
   // 2. General user protected routes (/profile, /settings)
